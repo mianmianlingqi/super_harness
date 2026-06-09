@@ -1,0 +1,12 @@
+{
+  "hub": "C:\\Users\\35928\\.super-harness",
+  "project": {
+    "name": "super-harness",
+    "type": "framework",
+    "language": "zh"
+  },
+  "overrides": {
+    "soul": "./SOUL.md",
+    "memory": "./MEMORY.md"
+  }
+}
