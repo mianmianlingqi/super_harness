@@ -45,7 +45,6 @@ Super Harness 是一个两层架构：
 | MCP 代理 | ✅ SHIPPED | proxy_mcp 动态热加载 + perm_mcp_install 永久安装 |
 | 能力搜索 | ✅ SHIPPED | capability_scout 实时搜 npm/PyPI/Web |
 | 安全硬化 | ✅ SHIPPED | 命令注入白名单 + 路径穿越保护 |
-| devlog CLI | ✅ SHIPPED | 零依赖开发者工作日志 |
 
 ## 关键决策记录 (ADR)
 
