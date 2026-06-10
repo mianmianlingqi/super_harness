@@ -12,13 +12,32 @@
 
 | 文件 | 路径 | 说明 |
 |------|------|------|
+| .harness.json | `.harness.json` | 行为配置（effort 级别、超级资源库开关） |
 | SOUL.md | `SOUL.md` | 项目灵魂和 Agent 身份 |
 | MEMORY.md | `MEMORY.md` | 项目记忆和当前状态 |
 
+`.harness.json` 的 `behavior` 字段控制 Agent 的行为强度：
+
+```json
+{
+  "behavior": {
+    "effort": "auto",           // "quick" | "auto" | "thorough"
+    "super_library": "off"      // "off" | "on" — 极端资源库模式
+  }
+}
+```
+
 ### 收到任务时
 
-参考 PLANNING.md 判断矩阵决定计划深度：
+先以 `.harness.json` 的 `behavior.effort` 缩放判断矩阵：
 
+**effort: "quick"** — 轻量级，省 token：
+| 任务特征 | 做法 |
+|---------|------|
+| 改 bug、改文案 | 直接做 |
+| 5+ 文件或架构变更 | 写简要计划 |
+
+**effort: "auto"**（默认）— 标准判断：
 | 任务特征 | 计划深度 | 做法 |
 |---------|---------|------|
 | 改一个 bug、改个文案 | 无需计划 | 直接做 |
@@ -27,10 +46,49 @@
 | 架构变更、新功能、跨模块 | 完整计划 | 写 `plans/{slug}.md`，分步执行 |
 | 探索性/研究性任务 | 探针模式 | 先做小实验，根据结果决定方向 |
 
-**计划纪律**：
+**effort: "thorough"** — 多验证，宁可多一步不错过：
+| 任务特征 | 做法 |
+|---------|------|
+| 1-2 文件 | 先列出改动点，再做；完成后验证 |
+| 3+ 文件或设计决策 | EnterPlanMode，完整计划驱动 |
+| 探索性任务 | 研究协议全流程：多源搜索 → 对比 → 写调研笔记 |
+| 每次修改后 | 运行已有测试 + 检查相关模块是否受影响 |
+| 完成前 | 至少一次 adversarial self-review（Code review agent）|
+
+**计划纪律**（所有 effort 级别通用）：
 - 破坏性操作前必须确认
 - 不确定时问，不要猜
 - 没验证就不算完成
+
+### 超级资源库模式（`.harness.json` → `behavior.super_library`）
+
+当 `super_library` 为 `"on"` 时，模型必须最大限度地构建项目资源库。
+这是一种极端模式，不计 token 成本，追求信息的广度和深度。
+
+**触发条件**：读取 `.harness.json` 后确认 `behavior.super_library === "on"`。
+
+**行为规则**：
+
+1. **全量搜集**：每次收到任务，先 `search_web` 至少 3 轮，覆盖相关技术栈、同类项目、最佳实践三个维度
+2. **不给就搜**：遇到任何不确定的库名、AP
+
+I、概念、配置项，立即 `search_web` 查，不允许存疑
+3. **零废弃**：每次搜索的结果（即使不直接相关）必须写入 `research/` 目录。每条结果包含：来源 URL、关键摘要、相关度评级（高/中/低）。低相关的留作后续参考，不丢弃
+4. **全量下载**：发现任何可下载的参考文档（PDF、代码仓库、Wiki 页面），立即下载到 `docs/` 或克隆到 `references/`。用 `search_capability` 搜所有可能相关的 MCP/Skill，每个候选都 `perm_install` 到项目资源库
+5. **索引必更新**：每次写入 `research/`、`docs/`、`references/`、`mcp/`、`skills/` 后，**必须立即**更新 `INDEX.md` 的对应表格，不允许延迟到会话结束 — 中途崩溃不能丢索引
+6. **每会话一笔记**：每次会话至少产出一篇调研笔记（`research/YYYY-MM-DD.md`），记录本会话所有调研结论和资源发现
+7. **冗余引用**：记录经验时同时更新 `capabilities.md` + MEMORY.md + 独立 memory 文件，三个位置交叉引用
+
+**与 effort 的联动**：
+- `super_library: "on"` + `effort: "thorough"` → 极致模式：每个子任务都触发完整研究协议，单个任务可能产生 5+ 次 web 搜索和 3+ 篇调研笔记
+- `super_library: "on"` + `effort: "auto"` → 平衡模式：每个任务至少 1 轮搜索，重点发现存 `research/`
+- `super_library: "on"` + `effort: "quick"` → 快速模式：搜索一轮，只存高相关，不下载
+
+**质量检查**（会话结束前自动执行）：
+- `INDEX.md` 的条目数 ≥ 上次会话结束时的数量？
+- 本次会话新增的文件是否都已索引？
+- `research/` 目录下是否有今天日期的笔记？
+- 如任一答案为否 → 在结束前补齐
 
 ### 需要调研时
 
@@ -47,11 +105,13 @@
 | npm | Node.js 包 | 包发现和版本 |
 | Semantic Scholar | 论文引用 | 引用网络、影响力排序 |
 
-**研究纪律**：
+**研究纪律**（总被 effort 缩放，叠加 super_library 效果）：
 - 引用来源 — 每个结论有出处
 - 区分事实和观点
 - 标记调研日期
 - 研究结果要落地到可执行步骤
+- `effort: "thorough"`：至少 2 个独立源交叉验证
+- `super_library: "on"`：每个搜索结果必须写入 research/，不丢弃任何信息
 
 ### 需要能力时
 

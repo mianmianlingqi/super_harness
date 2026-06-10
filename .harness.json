@@ -8,5 +8,9 @@
   "overrides": {
     "soul": "./SOUL.md",
     "memory": "./MEMORY.md"
+  },
+  "behavior": {
+    "effort": "auto",
+    "super_library": "off"
   }
 }
