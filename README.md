@@ -16,23 +16,16 @@ Super Harness 是一个**文档驱动的 Agent 增强协议框架**。核心理�
 | 问题 | Super Harness 的解决方案 |
 |------|------------------------|
 | Agent 每次会话都从零开始 | MEMORY.md 持续积累项目知识 |
-| 不同平台需要不同的配置格式 | 统一协议 + 平台适配器 |
 | Agent 不会主动制定计划 | PLANNING.md 提供思维工具箱 |
 | Agent 不会主动调研 | RESEARCH.md 定义研究协议 |
 | 能力（Skill/MCP）太多记不住 | CAPABILITIES.md 按需检索 |
+| 需要动态加载外部 MCP | proxy_mcp 热加载，本轮即用 |
 
-### 支持的 Agent 平台
+### 支持的平台
 
-| 平台 | 适配器文件 | 状态 |
-|------|-----------|------|
+| 平台 | 入口文件 | 状态 |
+|------|---------|------|
 | Claude Code | `.claude/CLAUDE.md` | ✅ |
-| OpenAI Codex | `AGENTS.md` | ✅ |
-| OpenCode | `AGENTS.md` | ✅ |
-| Cursor | `.cursorrules` | ✅ |
-| Windsurf | `.windsurfrules` | ✅ |
-| GitHub Copilot | `.github/copilot-instructions.md` | ✅ |
-| Gemini CLI | `GEMINI.md` | ✅ |
-| Kilo Code | `.clinerules` + `.roomodes` | ✅ |
 
 ## 快速开始
 
@@ -114,7 +107,7 @@ your-project/                        # 项目目录（项目特有）
 ├── plans/                           # 计划
 │   ├── active/
 │   └── done/
-└── [平台适配器]                     # CLAUDE.md / AGENTS.md / ...
+└── .claude/CLAUDE.md                 # 协议入口
 ```
 
 ### 四层协议体系
@@ -289,8 +282,8 @@ Super Harness 在 Claude Code 中利用原生接口实现了深度增强：
     ├── adr-002-principle-driven.md
     ├── adr-003-centralized.md
     ├── adr-004-reme-memory.md
-    ├── gotcha-adapters-source.md
-    └── gotcha-memory-layers.md
+    ├── gotcha-mcp-language-match.md
+    └── gotcha-db-init-before-mcp.md
 ```
 
 ### MCP Server — 语义搜索
@@ -326,12 +319,6 @@ MCP Server `super-harness` 将 `tools/memory/` 的检索能力暴露为 Claude C
 ---
 
 ## 如何扩展
-
-### 添加新平台适配器
-
-1. 确定平台的入口文件格式（如 `.agentrules`）
-2. 创建适配器文件，内容参考现有适配器
-3. 使用 `@` 语法导入全局协议
 
 ### 添加新研究源
 
@@ -389,8 +376,8 @@ MCP Server `super-harness` 将 `tools/memory/` 的检索能力暴露为 Claude C
 | 全局协议文档 | ✅ SHIPPED | SOUL + PLANNING + RESEARCH + CAPABILITIES |
 | 研究源注册 | ✅ SHIPPED | 6 个初始源 |
 | 能力注册表 | ✅ SHIPPED | 初始结构 |
-| 平台适配器 | ✅ SHIPPED | 8 个平台 |
 | 向量检索系统 | ✅ SHIPPED | SQLite + BM25 |
+| MCP 代理 | ✅ SHIPPED | proxy_mcp 动态热加载 |
 | ReMe Fork | ✅ SHIPPED | tools/memory/ |
 
 ## 依赖

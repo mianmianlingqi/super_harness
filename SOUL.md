@@ -43,7 +43,7 @@
 ├── MEMORY.md        → 项目级记忆
 ├── memory/          → 项目级日志
 ├── plans/           → 计划
-└── 平台适配器       → CLAUDE.md / AGENTS.md / ...
+└── .claude/CLAUDE.md → 协议入口（Claude Code）
 ```
 
 ## 当前阶段
