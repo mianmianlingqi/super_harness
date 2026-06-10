@@ -10,7 +10,7 @@
     "memory": "./MEMORY.md"
   },
   "behavior": {
-    "super_library": "off",
-    "super_internet": "off"
+    "super_library": "on",
+    "super_internet": "on"
   }
 }
