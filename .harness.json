@@ -10,7 +10,6 @@
     "memory": "./MEMORY.md"
   },
   "behavior": {
-    "effort": "auto",
     "super_library": "off"
   }
 }
