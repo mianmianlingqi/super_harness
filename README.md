@@ -263,6 +263,68 @@ search.close()
 2. 更新 `sources/_index.md`
 3. 做一次测试查询验证
 
+## Claude Code 深度集成
+
+Super Harness 在 Claude Code 中利用原生接口实现了深度增强：
+
+### 接口利用一览
+
+```
+.claude/
+├── CLAUDE.md              ← 协议入口（静态文档）
+├── settings.json           ← Hooks + MCP Server 注册
+├── hooks/
+│   └── session_close.py   ← Stop Hook：会话结束提醒更新 MEMORY.md
+├── commands/
+│   ├── sh-research.md     ← /sh-research：研究协议
+│   ├── sh-remember.md     ← /sh-remember：记忆维护
+│   └── sh-reflect.md      ← /sh-reflect：会话反思
+├── agents/
+│   ├── sh-researcher.md   ← 研究型子 Agent
+│   └── sh-curator.md      ← 记忆策展子 Agent
+├── mcp/
+│   └── harness_search.py  ← MCP Server：语义搜索
+└── memory/
+    ├── adr-001-doc-driven.md  ← ADR wikilink 记忆节点
+    ├── adr-002-principle-driven.md
+    ├── adr-003-centralized.md
+    ├── adr-004-reme-memory.md
+    ├── gotcha-adapters-source.md
+    └── gotcha-memory-layers.md
+```
+
+### MCP Server — 语义搜索
+
+MCP Server `super-harness` 将 `tools/memory/` 的检索能力暴露为 Claude Code 可调用的工具：
+
+| 工具 | 功能 | 内部引擎 |
+|------|------|---------|
+| `search_memory` | 语义搜索项目记忆 | BM25 (FTS5) |
+| `search_capability` | 语义搜索能力（Skill/MCP） | BM25 + 向量混合检索 |
+| `search_source` | 语义搜索研究源 | BM25 (FTS5) |
+
+### 斜杠命令
+
+| 命令 | 协议 | 说明 |
+|------|------|------|
+| `/sh-research <topic>` | RESEARCH.md | 结构化调研，选择最佳研究源，输出可执行报告 |
+| `/sh-remember` | MEMORY.md | 手动触发记忆维护，检查坑点/ADR/约定/状态变化 |
+| `/sh-reflect` | MEMORY.md | 会话结束反思，蒸馏经验到长期记忆 |
+
+### 自定义子 Agent
+
+| Agent 类型 | 用途 |
+|-----------|------|
+| `sh-researcher` | 内置研究协议的子 Agent，自动查阅研究源注册表，输出有出处的研究报告 |
+| `sh-curator` | 内置记忆维护协议的子 Agent，从会话中提取经验，输出格式化 MEMORY.md 更新建议 |
+
+### 自动化
+
+- **Stop Hook**: 会话结束时自动调用 `session_close.py`，检查 MEMORY.md 是否更新，输出维护清单
+- **Wikilink 知识网络**: ADR 和 Gotcha 拆分为独立记忆文件，Claude Code 通过 `[[wikilink]]` 自动关联加载
+
+---
+
 ## 如何扩展
 
 ### 添加新平台适配器

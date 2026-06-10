@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "super-harness": {
+      "type": "stdio",
+      "command": "python",
+      "args": [
+        ".claude/mcp/harness_search.py"
+      ],
+      "env": {
+        "PYTHONPATH": "tools/memory",
+        "HF_ENDPOINT": "https://hf-mirror.com"
+      }
+    }
+  }
+}

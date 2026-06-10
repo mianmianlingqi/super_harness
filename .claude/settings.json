@@ -1,0 +1,70 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hook": "python .claude/hooks/session_close.py"
+      }
+    ]
+  },
+  "mcpServers": {
+    "super-harness": {
+      "command": "python",
+      "args": [".claude/mcp/harness_search.py"],
+      "env": {
+        "PYTHONPATH": "tools/memory"
+      }
+    }
+  },
+  "permissions": {
+    "allow": [
+      "Read(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "Write(*)",
+      "Edit(*)",
+      "WebSearch(*)",
+      "WebFetch(*)",
+      "Bash(*)",
+      "Agent(*)",
+      "Workflow(*)",
+      "Skill(*)",
+      "TodoWrite(*)",
+      "AskUserQuestion(*)",
+      "NotebookEdit(*)",
+      "TaskOutput(*)",
+      "TaskStop(*)",
+      "EnterPlanMode(*)",
+      "ExitPlanMode(*)",
+      "EnterWorktree(*)",
+      "ExitWorktree(*)",
+      "CronCreate(*)",
+      "CronDelete(*)",
+      "CronList(*)",
+      "ScheduleWakeup(*)",
+      "mcp__chrome-devtools__*",
+      "mcp__super-harness__*",
+      "mcp__plugin_playwright_playwright__*",
+      "mcp__plugin_context7_context7__*",
+      "mcp__plugin_linear_linear__*",
+      "mcp__plugin_figma_figma__*",
+      "mcp__plugin_sentry_sentry__*",
+      "mcp__plugin_serena_serena__*",
+      "mcp__plugin_github_github__*"
+    ],
+    "deny": [
+      "Bash(rm -rf /:*)",
+      "Bash(rm -rf ~:*)",
+      "Bash(rm -rf .:*)",
+      "Bash(> /dev/*:*)",
+      "Bash(dd if=* of=/dev/*:*)",
+      "Bash(:(){ :|:& };:*:*)",
+      "Bash(chmod 777 /:*)",
+      "Bash(curl * | sh:*)",
+      "Bash(wget * -O - | sh:*)",
+      "Bash(git push --force origin main:*)",
+      "Bash(git push --force origin master:*)",
+      "Bash(git reset --hard origin/main:*)",
+      "Bash(git reset --hard origin/master:*)"
+    ]
+  }
+}

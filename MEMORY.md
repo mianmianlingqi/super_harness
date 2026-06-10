@@ -1,6 +1,6 @@
 # Super Harness — 项目记忆
 
-> 最后更新: 2026-06-09
+> 最后更新: 2026-06-10
 > 本文档由 Agent 自动维护，记录项目状态、决策和经验。
 
 ## 项目身份
@@ -38,39 +38,46 @@ Super Harness 是一个两层架构：
 | 研究源注册 | ✅ SHIPPED | 6 个初始源（arXiv, DeepWiki, GitHub, PyPI, npm, Semantic Scholar） |
 | 能力注册表 | ✅ SHIPPED | 初始结构（空） |
 | 项目模板 | ✅ SHIPPED | .harness.json + 项目级文档 |
-| 平台适配器 | ✅ SHIPPED | 6 个适配器（Claude, Codex, Cursor, Windsurf, Copilot, Gemini） |
+| 平台适配器 | ✅ REMOVED | 零适配器模式，仅保留 AGENTS.md 作为统一入口 |
 | 向量索引 | ✅ SHIPPED | SQLite + BM25 全文搜索（向量检索可选） |
-| 端到端验证 | ✅ SHIPPED | 文件结构验证通过（23 个文件创建成功） |
+| 端到端验证 | ✅ SHIPPED | 文件结构验证通过 |
+| Claude Code 深度集成 | ✅ SHIPPED | 5 接口填满：hooks + MCP + commands + agents + wikilink memory |
+| 平台适配器 | ✅ UPDATED | 模板新增 Claude Code 专属能力章节，8 平台全部重新生成 |
 
 ## 关键决策记录 (ADR)
 
-### ADR-001: 选择文档驱动而非代码驱动
-- **日期**: 2026-06-09
-- **正题**: 代码框架可以强制执行规则
-- **反题**: 文档更灵活，任何 Agent 平台都能读
-- **合题**: 文档即协议，工具是可选增强
+> 详见独立记忆文件，Claude Code 会自动关联加载。
 
-### ADR-002: 选择原则驱动而非流程驱动
-- **日期**: 2026-06-09
-- **正题**: 固定流程保证一致性
-- **反题**: 复杂任务需要灵活性
-- **合题**: 提供思维工具和判断矩阵，让 Agent 自己决定
-
-### ADR-003: 选择中央化存储
-- **日期**: 2026-06-09
-- **正题**: 项目内嵌更方便
-- **反题**: MCP/Skill/研究源是跨项目共享的
-- **合题**: 中央仓库 + 项目级覆盖
-
-### ADR-004: 选择 ReMe 作为记忆系统基础
-- **日期**: 2026-06-09
-- **正题**: ReMe 文件即记忆的理念最贴近需求
-- **反题**: 依赖 agentscope 框架
-- **合题**: Fork ReMe，保留核心，封装隔离
+- [[adr-001-doc-driven]] — 选择文档驱动而非代码驱动
+- [[adr-002-principle-driven]] — 选择原则驱动而非流程驱动
+- [[adr-003-centralized]] — 选择中央化存储
+- [[adr-004-reme-memory]] — 选择 ReMe 作为记忆系统基础
+- [[adr-005-zero-dep-mcp]] — 选择零依赖自实现 MCP Server
 
 ## 关键坑点 (Critical Gotchas)
 
-> 暂无。执行任务时自动积累。
+> 详见独立记忆文件，Claude Code 会自动关联加载。
+
+- [[gotcha-adapters-source]] — 适配器维护只有一份真源
+- [[gotcha-memory-layers]] — 记忆系统分两层，验证时分清层级
+- [[gotcha-mcp-language-match]] — MCP 搜索语言必须和数据库内容语言匹配
+- [[gotcha-db-init-before-mcp]] — MCP Server 启动前需确保数据库已初始化
+
+## Claude Code 深度集成
+
+Super Harness 在 Claude Code 中提供了以下增强能力：
+
+| 接口 | 类型 | 说明 |
+|------|------|------|
+| MCP Server `super-harness` | 工具 | 语义搜索记忆/能力/研究源 |
+| `/sh-research` | 斜杠命令 | 触发研究协议，结构化调研 |
+| `/sh-remember` | 斜杠命令 | 手动触发记忆维护 |
+| `/sh-reflect` | 斜杠命令 | 会话结束反思 |
+| `sh-researcher` | 子 Agent | 研究型 Agent，内置研究协议 |
+| `sh-curator` | 子 Agent | 记忆策展 Agent，格式化记忆更新建议 |
+| Stop Hook | 自动化 | 会话结束时提醒更新 MEMORY.md |
+
+详见 `.claude/settings.json`、`.claude/commands/`、`.claude/agents/`、`.claude/mcp/`。
 
 ## 编码约定
 
@@ -78,6 +85,8 @@ Super Harness 是一个两层架构：
 - 技术术语可用英文
 - Markdown 格式
 - 文件命名用 kebab-case
+- MCP Server 零依赖原则：优先使用 Python stdlib，避免强制第三方依赖
+- 适配器模板是唯一真源：改 `adapters/template.md` → 运行 `generate.py`
 
 ## Dev Commands
 
@@ -93,6 +102,21 @@ cat ~/.super-harness/sources/_index.md
 
 # 查看能力注册表
 cat ~/.super-harness/capabilities/_index.md
+
+# 初始化记忆数据库
+cd tools/memory && python init_db.py
+
+# 测试语义搜索
+cd tools/memory && python semantic_search.py search "代码审查"
+
+# 测试 MCP Server（直接 JSON-RPC）
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | python .claude/mcp/harness_search.py
+
+# 重新生成所有平台适配器
+python adapters/generate.py
+
+# 测试会话结束 hook
+python .claude/hooks/session_close.py
 ```
 
 ## 文档地图

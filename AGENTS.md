@@ -1,15 +1,8 @@
-# Super Harness — OpenCode Agent 指南
+# Super Harness — Agent 指南
 
 本项目使用 Super Harness 协议，一套让任何 AI Agent 都能跨平台工作的增强协议框架。
 
-## 核心原则
-
-- **先想后做** — 重大变更前花 10% 时间思考
-- **比例匹配** — 简单任务轻处理，复杂任务深处理
-- **不要重新发明轮子** — 先调研顶级方案
-- **不猜测** — 不确定时用工具确认
-- **不假装成功** — 没验证就不算完成
-- **记录决策** — 重要的不是做了什么，而是为什么这么做
+> 本文档是统一入口。所有平台（OpenCode / Claude Code / Cursor / Windsurf / Copilot / Gemini / Kilo Code）均通过此文件获取协议上下文。
 
 ## 会话协议
 
@@ -24,7 +17,7 @@
 
 ### 收到任务时
 
-参考 `PLANNING.md` 判断矩阵决定计划深度：
+参考 PLANNING.md 判断矩阵决定计划深度：
 
 | 任务特征 | 计划深度 | 做法 |
 |---------|---------|------|
@@ -134,7 +127,36 @@ MEMORY.md 由 Agent 自动维护，每次会话结束时更新相关板块。
 - Dev Commands → `bash` code block
 - 模块状态 → 表格
 
-## 与 Claude Code 的区别
+## Claude Code 专属能力
 
-OpenCode 使用 `AGENTS.md` 作为入口，不支持 `@import` 语法。
-因此本文件内联了关键协议内容，详细内容请显式读取对应文件。
+当运行在 Claude Code 中时，以下增强能力可用：
+
+### MCP Server — 语义搜索
+
+MCP Server `super-harness` 提供三个搜索工具：
+
+| 工具 | 用途 | 示例 |
+|------|------|------|
+| `search_memory` | 语义搜索项目记忆 | "之前关于认证的坑是什么" |
+| `search_capability` | 搜索可用的 Skill/MCP | "我需要审查代码安全" |
+| `search_source` | 搜索合适的研究源 | "去哪找最新 AI 论文" |
+
+### 斜杠命令
+
+| 命令 | 用途 |
+|------|------|
+| `/sh-research <topic>` | 触发研究协议，结构化调研 |
+| `/sh-remember` | 手动触发 MEMORY.md 维护 |
+| `/sh-reflect` | 会话结束反思和知识蒸馏 |
+
+### 自定义子 Agent
+
+| Agent 类型 | 用途 |
+|-----------|------|
+| `sh-researcher` | 研究型 Agent，内置研究协议和研究纪律 |
+| `sh-curator` | 记忆策展 Agent，输出格式化 MEMORY.md 更新建议 |
+
+### 自动化
+
+- **Stop Hook**: 会话结束时自动提醒更新 MEMORY.md
+- **Wikilink**: ADR 和 Gotcha 拆分为独立记忆文件，通过 `[[wikilink]]` 交叉引用

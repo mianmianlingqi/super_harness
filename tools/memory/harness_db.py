@@ -13,15 +13,22 @@ Super Harness 向量检索系统
 import sqlite3
 import json
 import os
+import re
 from pathlib import Path
 from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 import hashlib
 
+try:
+    import sqlite_vec
+    HAS_VEC_EXT = True
+except ImportError:
+    HAS_VEC_EXT = False
+
 
 class VectorStore:
     """SQLite-vec 向量存储引擎"""
-    
+
     def __init__(self, db_path: str = None):
         """
         初始化向量存储
@@ -44,10 +51,15 @@ class VectorStore:
         cursor = self.conn.cursor()
         
         # 启用 sqlite-vec 扩展（如果可用）
-        try:
-            cursor.execute("LOAD EXTENSION 'vec0'")
-            self.has_vec = True
-        except:
+        if HAS_VEC_EXT:
+            try:
+                self.conn.enable_load_extension(True)
+                sqlite_vec.load(self.conn)
+                self.has_vec = True
+            except Exception as e:
+                self.has_vec = False
+                print(f"警告: 无法加载 sqlite-vec 扩展: {e}")
+        else:
             self.has_vec = False
             print("警告: sqlite-vec 扩展未安装，将使用纯 SQL 实现")
         
@@ -156,6 +168,27 @@ class VectorStore:
     def _generate_id(self, content: str) -> str:
         """生成内容 ID"""
         return hashlib.sha256(content.encode()).hexdigest()[:16]
+
+    def _tokenize_like_query(self, query: str) -> str:
+        """将多词/中文查询转为 LIKE OR 子句
+
+        中文无空格分词: 将查询切成单个字 OR 匹配
+        英文有空格: 每个空格分词 OR 匹配
+        确保 "gotcha 适配器" → content LIKE '%gotcha%' OR content LIKE '%适配器%'
+        """
+        # 先用空格分开
+        parts = re.split(r'\s+', query.strip())
+        # 对每个无空格的 chunk（中文），切成单个字符
+        tokens = []
+        for part in parts:
+            if part:
+                # 英文/数字保持原词，中文切字（CJK Unicode range）
+                has_cjk = bool(re.search(r'[一-鿿㐀-䶿豈-﫿]', part))
+                if has_cjk:
+                    tokens.extend(list(part))
+                else:
+                    tokens.append(part)
+        return tokens
     
     def add_memory(self, content: str, project_id: str = None, 
                    source_file: str = None, metadata: Dict = None) -> str:
@@ -269,39 +302,68 @@ class VectorStore:
         self.conn.commit()
         return source_id
     
-    def search_memories(self, query: str, project_id: str = None, 
+    def search_memories(self, query: str, project_id: str = None,
                        limit: int = 10) -> List[Dict]:
         """
-        搜索记忆（BM25 全文搜索）
-        
+        搜索记忆（BM25 全文搜索，含中文 LIKE 降级）
+
         Args:
             query: 查询文本
             project_id: 项目 ID（可选过滤）
             limit: 返回数量
-            
+
         Returns:
             匹配的记忆列表
         """
         cursor = self.conn.cursor()
-        
-        sql = """
-            SELECT m.*, fts.rank
+
+        # 先尝试 FTS5
+        try:
+            sql = """
+                SELECT m.*, fts.rank
+                FROM memories m
+                JOIN memories_fts fts ON m.rowid = fts.rowid
+                WHERE memories_fts MATCH ?
+            """
+            params = [query]
+            if project_id:
+                sql += " AND m.project_id = ?"
+                params.append(project_id)
+            sql += " ORDER BY fts.rank LIMIT ?"
+            params.append(limit)
+            cursor.execute(sql, params)
+            rows = cursor.fetchall()
+            results = [dict(row) for row in rows]
+            if results:
+                return results
+        except Exception:
+            pass  # FTS5 失败，降级到 LIKE
+
+        # LIKE 降级（中文等无空格语言必需）
+        # 分词 OR 匹配，而非整体短语匹配
+        tokens = self._tokenize_like_query(query)
+        if not tokens:
+            return []
+
+        like_parts = []
+        like_params = []
+        for token in tokens:
+            like_parts.append("m.content LIKE ?")
+            like_params.append(f"%{token}%")
+
+        sql = f"""
+            SELECT m.*
             FROM memories m
-            JOIN memories_fts fts ON m.rowid = fts.rowid
-            WHERE memories_fts MATCH ?
+            WHERE {' OR '.join(like_parts)}
         """
-        params = [query]
-        
+        params = like_params.copy()
         if project_id:
             sql += " AND m.project_id = ?"
             params.append(project_id)
-        
-        sql += " ORDER BY fts.rank LIMIT ?"
+        sql += " LIMIT ?"
         params.append(limit)
-        
         cursor.execute(sql, params)
         rows = cursor.fetchall()
-        
         return [dict(row) for row in rows]
     
     def search_capabilities(self, query: str, type: str = None,
@@ -341,25 +403,54 @@ class VectorStore:
     
     def search_sources(self, query: str, limit: int = 10) -> List[Dict]:
         """
-        搜索研究源（BM25 全文搜索）
-        
+        搜索研究源（BM25 全文搜索，含中文 LIKE 降级）
+
         Args:
             query: 查询文本
             limit: 返回数量
-            
+
         Returns:
             匹配的研究源列表
         """
         cursor = self.conn.cursor()
-        
-        cursor.execute("""
-            SELECT s.*, fts.rank
+
+        # 先尝试 FTS5（英文/空格分词有效）
+        try:
+            cursor.execute("""
+                SELECT s.*, fts.rank
+                FROM sources s
+                JOIN sources_fts fts ON s.rowid = fts.rowid
+                WHERE sources_fts MATCH ?
+                ORDER BY fts.rank LIMIT ?
+            """, (query, limit))
+            rows = cursor.fetchall()
+            results = [dict(row) for row in rows]
+            if results:
+                return results
+        except Exception:
+            pass  # FTS5 查询失败，降级到 LIKE
+
+        # LIKE 降级（中文等无空格语言必需）
+        # 分词 OR 匹配，而非整体短语匹配
+        tokens = self._tokenize_like_query(query)
+        if not tokens:
+            return []
+
+        like_parts = []
+        like_params = []
+        for token in tokens:
+            like_parts.append("(s.name LIKE ? OR s.description LIKE ? OR s.tags LIKE ?)")
+            p = f"%{token}%"
+            like_params.extend([p, p, p])
+
+        sql = f"""
+            SELECT s.*
             FROM sources s
-            JOIN sources_fts fts ON s.rowid = fts.rowid
-            WHERE sources_fts MATCH ?
-            ORDER BY fts.rank LIMIT ?
-        """, (query, limit))
-        
+            WHERE {' OR '.join(like_parts)}
+            LIMIT ?
+        """
+        like_params.append(limit)
+        cursor.execute(sql, like_params)
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
     

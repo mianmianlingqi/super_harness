@@ -22,15 +22,22 @@ try:
     HAS_EMBEDDING = True
 except ImportError:
     HAS_EMBEDDING = False
-    np = None  # 占位符，避免 NameError
+    np = None
     print("警告: sentence-transformers 未安装，向量检索不可用")
     print("安装: pip install sentence-transformers")
+
+try:
+    import sqlite_vec
+    HAS_VEC_EXT = True
+except ImportError:
+    HAS_VEC_EXT = False
+    print("警告: sqlite-vec 未安装，将使用纯 SQL 实现")
 
 
 class SemanticSearch:
     """语义检索引擎"""
     
-    def __init__(self, db_path: str = None, model_name: str = "all-MiniLM-L6-v2"):
+    def __init__(self, db_path: str = None, model_name: str = "paraphrase-multilingual-MiniLM-L12-v2"):
         """
         初始化语义检索引擎
         
@@ -106,35 +113,47 @@ class SemanticSearch:
         """)
         
         # 创建向量表（使用 sqlite-vec）
-        try:
-            # memories 向量表
-            cursor.execute(f"""
-                CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(
-                    id TEXT PRIMARY KEY,
-                    embedding FLOAT[{self.embedding_dim}]
-                )
-            """)
-            
-            # capabilities 向量表
-            cursor.execute(f"""
-                CREATE VIRTUAL TABLE IF NOT EXISTS capabilities_vec USING vec0(
-                    id TEXT PRIMARY KEY,
-                    embedding FLOAT[{self.embedding_dim}]
-                )
-            """)
-            
-            # sources 向量表
-            cursor.execute(f"""
-                CREATE VIRTUAL TABLE IF NOT EXISTS sources_vec USING vec0(
-                    id TEXT PRIMARY KEY,
-                    embedding FLOAT[{self.embedding_dim}]
-                )
-            """)
-            
-            self.has_vec = True
-        except Exception as e:
-            print(f"警告: 无法创建向量表: {e}")
+        if HAS_VEC_EXT:
+            try:
+                self.conn.enable_load_extension(True)
+                sqlite_vec.load(self.conn)
+                self.has_vec = True
+            except Exception as e:
+                print(f"警告: 无法加载 sqlite-vec 扩展: {e}")
+                self.has_vec = False
+        else:
             self.has_vec = False
+
+        if self.has_vec:
+            try:
+                # memories 向量表
+                cursor.execute(f"""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS memories_vec USING vec0(
+                        id TEXT PRIMARY KEY,
+                        embedding FLOAT[{self.embedding_dim}]
+                    )
+                """)
+
+                # capabilities 向量表
+                cursor.execute(f"""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS capabilities_vec USING vec0(
+                        id TEXT PRIMARY KEY,
+                        embedding FLOAT[{self.embedding_dim}]
+                    )
+                """)
+
+                # sources 向量表
+                cursor.execute(f"""
+                    CREATE VIRTUAL TABLE IF NOT EXISTS sources_vec USING vec0(
+                        id TEXT PRIMARY KEY,
+                        embedding FLOAT[{self.embedding_dim}]
+                    )
+                """)
+
+                self.has_vec = True
+            except Exception as e:
+                print(f"警告: 无法创建向量表: {e}")
+                self.has_vec = False
         
         # 创建全文搜索表
         cursor.execute("""
