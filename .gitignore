@@ -60,3 +60,6 @@ tools/memory/reme4/
 *.tmp
 *.bak
 *.cache
+.claude-plugin/
+.devlog/
+.playwright-mcp/
